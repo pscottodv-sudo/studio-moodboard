@@ -136,7 +136,6 @@ def hex_to_rgb(h):
 
 def get_fonts():
     """Font scalati con FIX DEFINITIVO per Windows, Mac, Linux e fallback sicuro."""
-    # Lista di font universali nei percorsi standard
     font_paths = [
         "arial.ttf", 
         "Helvetica.ttc", 
@@ -146,7 +145,6 @@ def get_fonts():
         "/System/Library/Fonts/Supplemental/Arial.ttf"
     ]
     
-    # Prova a caricare il primo font disponibile sul sistema
     for path in font_paths:
         try:
             return (
@@ -158,7 +156,6 @@ def get_fonts():
         except IOError:
             continue
             
-    # Se fallisce tutto, usa il default ridimensionato (per versioni Pillow recenti)
     try:
         return (
             ImageFont.load_default(size=280),
@@ -167,16 +164,13 @@ def get_fonts():
             ImageFont.load_default(size=75)
         )
     except TypeError:
-        # Extrema ratio per versioni molto vecchie di Pillow
         d = ImageFont.load_default()
         return d, d, d, d
 
 def color_distance(c1, c2):
-    """Calcola la distanza euclidea tra due colori RGB."""
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
 
 def extract_palette(image_files, num_colors=6):
-    """Estrae una palette intelligente e variegata."""
     all_colors = []
     for img_f in image_files[:8]: 
         if hasattr(img_f, 'seek'): img_f.seek(0)
@@ -185,17 +179,14 @@ def extract_palette(image_files, num_colors=6):
     
     if not all_colors: return []
 
-    # Conta frequenze e arrotonda per raggruppare sfumature simili
     counts = Counter([(r//15*15, g//15*15, b//15*15) for r, g, b in all_colors])
     sorted_colors = [item[0] for item in counts.most_common(100)]
     
-    # Selezione intelligente: evita colori troppo vicini
     unique_palette = []
     if sorted_colors:
         unique_palette.append(sorted_colors[0])
         for c in sorted_colors[1:]:
             if len(unique_palette) >= num_colors: break
-            # Distanza minima di 60 per garantire diversità cromatica
             if all(color_distance(c, existing) > 65 for existing in unique_palette):
                 unique_palette.append(c)
                 
@@ -205,14 +196,13 @@ def extract_palette(image_files, num_colors=6):
 def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
     bg, tx, ac = hex_to_rgb(styling["bg"]), hex_to_rgb(styling["text"]), hex_to_rgb(styling["accent"])
     w = 2500 if styling["orientation"].startswith("Verticale") else 3500
-    m = 180 # Margine più ampio
+    m = 180 
     f_h1, f_h2, f_lbl, f_val = get_fonts()
     
     canvas = Image.new("RGB", (w, 15000), bg)
     draw = ImageDraw.Draw(canvas)
     current_y = m
 
-    # SEZIONE 01: INFO (TESTI GRANDI)
     title_wrapped = textwrap.fill(details["title"].upper(), width=18)
     for line in title_wrapped.split('\n'):
         draw.text((m, current_y), line, fill=tx, font=f_h1)
@@ -226,7 +216,6 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
     
     current_y += 200
     
-    # INFO BOXES (BRAND, LOCATION, DATA)
     info_cols = [("BRAND", details.get("brand", "")), ("LOCATION", details.get("location", "")), ("DATE", details.get("date", ""))]
     col_x, step_x = m, (w - 2*m) // 3
     for label, value in info_cols:
@@ -236,7 +225,6 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
         col_x += step_x
     current_y += 350
 
-    # LOCATION IMAGES
     if loc_imgs:
         l_w = (w - 2*m - 100) // 3
         max_loc_h, x_pos = 0, m
@@ -250,11 +238,10 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
             x_pos += l_w + 50
         current_y += max_loc_h + 150
 
-    # SEZIONE 02: TEAM & CAST
     if crew or any(mod['name'] for mod in models):
         draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
         current_y += 100
-        draw.text((m, current_y), "// TEAM & CASTING", fill=ac, font=f_lbl)
+        draw.text((m, current_y), "// TEAM E CAST", fill=ac, font=f_lbl)
         current_y += 150
 
         if crew:
@@ -282,11 +269,10 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
                 mx += mod_w + 35
             current_y += max_m_h + 300
 
-    # SEZIONE 03: VISUAL DIRECTION
     if mood_imgs:
         draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
         current_y += 100
-        draw.text((m, current_y), "// VISUAL DIRECTION", fill=ac, font=f_lbl)
+        draw.text((m, current_y), "// DIREZIONE VISIVA", fill=ac, font=f_lbl)
         current_y += 150
 
         if styling['layout'] == "Scrapbook STRONG":
@@ -322,11 +308,10 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
                 col_y[target] += new_h + 50
             current_y = max(col_y) + 200
 
-    # --- SEZIONE: PALETTE INTELLIGENTE ---
     if mood_imgs:
         draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
         current_y += 100
-        draw.text((m, current_y), "// COLOR PALETTE (SMART EXTRACTION)", fill=ac, font=f_lbl)
+        draw.text((m, current_y), "// PALETTE COLORI (ESTRATTA DAL MOODBOARD)", fill=ac, font=f_lbl)
         current_y += 150
         
         palette = extract_palette(mood_imgs)
@@ -348,53 +333,90 @@ if st.session_state.app_mode == 'home':
     st.markdown("<h1 style='text-align:center; margin-top:10vh; font-size:4rem;'>MOODBOARD.OS</h1>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1]) 
     with c2:
-        if st.button("MODO BASE", use_container_width=True): st.session_state.app_mode = 'base'; st.rerun()
+        if st.button("📝 MODO BASE", use_container_width=True): st.session_state.app_mode = 'base'; st.rerun()
         st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-        if st.button("MODO AVANZATO", use_container_width=True): st.session_state.app_mode = 'adv'; st.rerun()
+        if st.button("🚀 MODO AVANZATO", use_container_width=True): st.session_state.app_mode = 'adv'; st.rerun()
 
 elif st.session_state.app_mode in ['base', 'adv']:
     col_nav, _ = st.columns([1, 5])
     with col_nav:
-        if st.button("< RETURN"): st.session_state.app_mode = 'home'; st.rerun()
+        if st.button("← INDIETRO"): st.session_state.app_mode = 'home'; st.rerun()
     
     col_left, col_right = st.columns([1.5, 2.5], gap="large")
     
     with col_left:
-        st.markdown("<h3>SETUP</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>CONFIGURAZIONE</h3>", unsafe_allow_html=True)
         
         if st.session_state.app_mode == 'adv':
-            tab1, tab2, tab3, tab4 = st.tabs(["PROJ", "LOCATION", "TEAM", "VISUAL"])
+            tab1, tab2, tab3, tab4 = st.tabs(["PROGETTO", "LOCATION", "TEAM", "VISUAL"])
             with tab1:
-                t_title = st.text_input("PROJECT TITLE")
+                t_title = st.text_input("TITOLO PROGETTO")
                 t_desc = st.text_area("CONCEPT")
-                s_orient = st.radio("FORMAT", ["Verticale", "Orizzontale"], horizontal=True)
+                s_orient = st.radio("FORMATO FOGLIO", ["Verticale", "Orizzontale"], horizontal=True)
             with tab2:
-                t_brand = st.text_input("BRAND")
-                t_loc_name = st.text_input("LOCATION")
-                t_date = st.text_input("DATE")
-                loc_photos = st.file_uploader("UPLOAD LOCATION", accept_multiple_files=True)
+                t_brand = st.text_input("CLIENTE / BRAND")
+                t_loc_name = st.text_input("NOME LOCATION")
+                t_date = st.text_input("DATA SHOOTING")
+                loc_photos = st.file_uploader("FOTO LOCATION", accept_multiple_files=True)
             with tab3:
                 for i, member in enumerate(st.session_state.crew_list):
                     r1, r2 = st.columns(2)
-                    member['role'] = r1.text_input(f"ROLE", value=member['role'], key=f"r_{i}")
-                    member['name'] = r2.text_input(f"NAME", value=member['name'], key=f"n_{i}")
-                if st.button("+ ADD CREW"): st.session_state.crew_list.append({"role": "", "name": ""}); st.rerun()
+                    member['role'] = r1.text_input(f"RUOLO", value=member['role'], key=f"r_{i}")
+                    member['name'] = r2.text_input(f"NOME", value=member['name'], key=f"n_{i}")
+                if st.button("+ AGGIUNGI CREW"): st.session_state.crew_list.append({"role": "", "name": ""}); st.rerun()
                 st.divider()
                 for i, mod in enumerate(st.session_state.models_list):
-                    mod['name'] = st.text_input(f"MODEL {i+1}", value=mod['name'], key=f"mn_{i}")
-                    mod['photo'] = st.file_uploader(f"PHOTO {i+1}", key=f"mp_{i}")
-                if st.button("+ ADD MODEL"): st.session_state.models_list.append({"name": "", "photo": None}); st.rerun()
+                    mod['name'] = st.text_input(f"MODELLO {i+1}", value=mod['name'], key=f"mn_{i}")
+                    mod['photo'] = st.file_uploader(f"FOTO MODELLO {i+1}", key=f"mp_{i}")
+                if st.button("+ AGGIUNGI MODELLO"): st.session_state.models_list.append({"name": "", "photo": None}); st.rerun()
             with tab4:
-                mood_photos = st.file_uploader("MOODBOARD (REFS)", accept_multiple_files=True)
-                s_theme = st.selectbox("COLOR THEME", list(THEMES.keys()))
-                s_layout = st.selectbox("LAYOUT", ["Minimal", "Scrapbook STRONG"])
-                s_filter = st.selectbox("FILTER", ["Nessuno", "Bianco e Nero"])
+                mood_photos = st.file_uploader("MOODBOARD (REFERENCE VISIVE)", accept_multiple_files=True)
+                s_theme = st.selectbox("TEMA COLORI", list(THEMES.keys()))
+                s_layout = st.selectbox("IMPAGINAZIONE", ["Minimal", "Scrapbook STRONG"])
+                s_filter = st.selectbox("FILTRO FOTO", ["Nessuno", "Bianco e Nero"])
         
         else: 
-            t_title = st.text_input("PROJECT TITLE")
-            t_desc = st.text_area("CONCEPT / DESC")
-            mood_photos = st.file_uploader("MOODBOARD REFS", accept_multiple_files=True)
+            t_title = st.text_input("TITOLO PROGETTO")
+            t_desc = st.text_area("CONCEPT / DESCRIZIONE")
+            mood_photos = st.file_uploader("MOODBOARD (REFERENCE VISIVE)", accept_multiple_files=True)
             
-            with st.expander("STYLE OVERRIDE"):
-                s_orient = st.radio("FORMAT", ["Verticale", "Orizzontale"], horizontal=True)
-                s_theme = st.selectbox("COLOR THEME", list(THEMES.keys()))
+            with st.expander("STILE E LAYOUT"):
+                s_orient = st.radio("FORMATO FOGLIO", ["Verticale", "Orizzontale"], horizontal=True)
+                s_theme = st.selectbox("TEMA COLORI", list(THEMES.keys()))
+                s_layout = st.selectbox("IMPAGINAZIONE", ["Minimal", "Scrapbook STRONG"])
+                s_filter = st.selectbox("FILTRO FOTO", ["Nessuno", "Bianco e Nero"])
+            
+            t_brand, t_loc_name, t_date, loc_photos = "", "", "", []
+
+        # IL BOTTONE PER GENERARE IL PDF È QUI
+        if st.button("🔴 GENERA TREATMENT", use_container_width=True):
+            with st.spinner("Creazione in corso..."):
+                styling = {**THEMES[s_theme], "layout": s_layout, "filter": s_filter, "orientation": s_orient}
+                st.session_state.final_pages = create_pro_document(
+                    {"title": t_title, "desc": t_desc, "brand": t_brand, "location": t_loc_name, "date": t_date},
+                    st.session_state.models_list if st.session_state.app_mode == 'adv' else [],
+                    st.session_state.crew_list if st.session_state.app_mode == 'adv' else [],
+                    mood_photos, loc_photos, styling
+                )
+
+    with col_right:
+        st.markdown("<h3>ANTEPRIMA</h3>", unsafe_allow_html=True)
+        if 'final_pages' in st.session_state:
+            img = st.session_state.final_pages[0]
+            st.image(img, use_container_width=True)
+            
+            pdf_buf = io.BytesIO()
+            img.save(pdf_buf, format="PDF", resolution=100.0)
+            
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+            
+            # IL BOTTONE PER SCARICARE IL PDF È QUI
+            st.download_button(
+                label="📥 SCARICA PDF",
+                data=pdf_buf.getvalue(),
+                file_name=f"{t_title.replace(' ','_')}_TREATMENT.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.info("Compila i dati a sinistra e clicca 'GENERA TREATMENT' per visualizzare l'anteprima e scaricare il PDF.")
