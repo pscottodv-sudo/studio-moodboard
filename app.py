@@ -5,6 +5,7 @@ import random
 import textwrap
 from collections import Counter
 import math
+import os
 
 # --- 1. CONFIGURAZIONE INTERFACCIA ---
 st.set_page_config(page_title="Studio Moodboard Pro", layout="wide", initial_sidebar_state="collapsed")
@@ -134,16 +135,39 @@ def hex_to_rgb(h):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 def get_fonts():
-    """Font scalati per canvas ad alta risoluzione."""
+    """Font scalati con FIX DEFINITIVO per Windows, Mac, Linux e fallback sicuro."""
+    # Lista di font universali nei percorsi standard
+    font_paths = [
+        "arial.ttf", 
+        "Helvetica.ttc", 
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf"
+    ]
+    
+    # Prova a caricare il primo font disponibile sul sistema
+    for path in font_paths:
+        try:
+            return (
+                ImageFont.truetype(path, 280), # H1 Titolo
+                ImageFont.truetype(path, 90),  # H2 Descrizione
+                ImageFont.truetype(path, 55),  # Labels (BRAND, LOCATION)
+                ImageFont.truetype(path, 75)   # Values
+            )
+        except IOError:
+            continue
+            
+    # Se fallisce tutto, usa il default ridimensionato (per versioni Pillow recenti)
     try:
-        # Aumentati drasticamente per visibilità professionale nel PDF
         return (
-            ImageFont.truetype("arial.ttf", 280), # H1 Titolo
-            ImageFont.truetype("arial.ttf", 90),  # H2 Descrizione
-            ImageFont.truetype("arial.ttf", 55),  # Labels (BRAND, LOCATION)
-            ImageFont.truetype("arial.ttf", 75)   # Values
+            ImageFont.load_default(size=280),
+            ImageFont.load_default(size=90),
+            ImageFont.load_default(size=55),
+            ImageFont.load_default(size=75)
         )
-    except:
+    except TypeError:
+        # Extrema ratio per versioni molto vecchie di Pillow
         d = ImageFont.load_default()
         return d, d, d, d
 
@@ -374,34 +398,3 @@ elif st.session_state.app_mode in ['base', 'adv']:
             with st.expander("STYLE OVERRIDE"):
                 s_orient = st.radio("FORMAT", ["Verticale", "Orizzontale"], horizontal=True)
                 s_theme = st.selectbox("COLOR THEME", list(THEMES.keys()))
-                s_layout = st.selectbox("LAYOUT", ["Minimal", "Scrapbook STRONG"])
-                s_filter = st.selectbox("FILTER", ["Nessuno", "Bianco e Nero"])
-            
-            t_brand, t_loc_name, t_date, loc_photos = "", "", "", []
-
-        if st.button("COMPILE TREATMENT", use_container_width=True):
-            with st.spinner("EXECUTING..."):
-                styling = {**THEMES[s_theme], "layout": s_layout, "filter": s_filter, "orientation": s_orient}
-                st.session_state.final_pages = create_pro_document(
-                    {"title": t_title, "desc": t_desc, "brand": t_brand, "location": t_loc_name, "date": t_date},
-                    st.session_state.models_list if st.session_state.app_mode == 'adv' else [],
-                    st.session_state.crew_list if st.session_state.app_mode == 'adv' else [],
-                    mood_photos, loc_photos, styling
-                )
-
-    with col_right:
-        st.markdown("<h3>PREVIEW</h3>", unsafe_allow_html=True)
-        if 'final_pages' in st.session_state:
-            img = st.session_state.final_pages[0]
-            st.image(img, use_container_width=True)
-            
-            pdf_buf = io.BytesIO()
-            img.save(pdf_buf, format="PDF", resolution=100.0)
-            
-            st.download_button(
-                label="DOWNLOAD PDF",
-                data=pdf_buf.getvalue(),
-                file_name=f"{t_title.replace(' ','_')}_TREATMENT.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
