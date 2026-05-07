@@ -333,14 +333,14 @@ if st.session_state.app_mode == 'home':
     st.markdown("<h1 style='text-align:center; margin-top:10vh; font-size:4rem;'>MOODBOARD.OS</h1>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1]) 
     with c2:
-        if st.button("📝 MODO BASE", use_container_width=True): st.session_state.app_mode = 'base'; st.rerun()
+        if st.button("MODO BASE", use_container_width=True): st.session_state.app_mode = 'base'; st.rerun()
         st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-        if st.button("🚀 MODO AVANZATO", use_container_width=True): st.session_state.app_mode = 'adv'; st.rerun()
+        if st.button("MODO AVANZATO", use_container_width=True): st.session_state.app_mode = 'adv'; st.rerun()
 
 elif st.session_state.app_mode in ['base', 'adv']:
     col_nav, _ = st.columns([1, 5])
     with col_nav:
-        if st.button("← INDIETRO"): st.session_state.app_mode = 'home'; st.rerun()
+        if st.button("INDIETRO"): st.session_state.app_mode = 'home'; st.rerun()
     
     col_left, col_right = st.columns([1.5, 2.5], gap="large")
     
@@ -388,8 +388,7 @@ elif st.session_state.app_mode in ['base', 'adv']:
             
             t_brand, t_loc_name, t_date, loc_photos = "", "", "", []
 
-        # IL BOTTONE PER GENERARE IL PDF È QUI
-        if st.button("🔴 GENERA TREATMENT", use_container_width=True):
+        if st.button("GENERA TREATMENT", use_container_width=True):
             with st.spinner("Creazione in corso..."):
                 styling = {**THEMES[s_theme], "layout": s_layout, "filter": s_filter, "orientation": s_orient}
                 st.session_state.final_pages = create_pro_document(
@@ -410,9 +409,8 @@ elif st.session_state.app_mode in ['base', 'adv']:
             
             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
             
-            # IL BOTTONE PER SCARICARE IL PDF È QUI
             st.download_button(
-                label="📥 SCARICA PDF",
+                label="SCARICA PDF",
                 data=pdf_buf.getvalue(),
                 file_name=f"{t_title.replace(' ','_')}_TREATMENT.pdf",
                 mime="application/pdf",
