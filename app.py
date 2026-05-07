@@ -4,29 +4,27 @@ import io
 import random
 import textwrap
 from collections import Counter
+import math
 
 # --- 1. CONFIGURAZIONE INTERFACCIA ---
 st.set_page_config(page_title="Studio Moodboard Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CSS STILE "NOTHING" ARROTONDATO + FIX DEFINITIVO SELECTBOX ---
+# --- CSS STILE "NOTHING" (Stabile, Leggibile, No Emoji, Arrotondato) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Inter:wght@400;500;600;700&display=swap');
     
-    /* 1. TIPOGRAFIA BASE (Niente Emoji) */
     html, body, [class*="css"] { 
         font-family: 'Inter', -apple-system, sans-serif !important; 
         color: #000000 !important;
     }
     
-    /* Titoli con il font Dot-Matrix per il branding */
     h1, h2, h3 {
         font-family: 'DotGothic16', monospace !important;
         text-transform: uppercase;
         letter-spacing: 1.5px;
     }
 
-    /* 2. SFONDO A GRIGLIA LEGGERA */
     .stApp { 
         background-color: #F4F4F4 !important; 
         background-image: radial-gradient(#CCCCCC 1px, transparent 1px);
@@ -35,7 +33,6 @@ st.markdown("""
     
     header {visibility: hidden;} footer {visibility: hidden;}
 
-    /* 3. STILE SCHEDE (TABS) - Estremamente arrotondato (Pillola) */
     .stTabs [data-baseweb="tab-list"] { 
         background-color: #FFFFFF;
         border: 2px solid #000000; 
@@ -51,24 +48,20 @@ st.markdown("""
         font-size: 16px !important;
         background-color: transparent;
         border: none !important;
-        transition: all 0.2s ease;
     }
     .stTabs [aria-selected="true"] { 
         background-color: #000000 !important; 
         color: #FFFFFF !important; 
     }
 
-    /* 4. BOTTONI PRINCIPALI - Forma a pillola perfetta */
     .stButton>button { 
         border-radius: 999px !important; 
         background-color: #FFFFFF !important; 
         color: #000000 !important; 
         font-family: 'DotGothic16', monospace !important;
         font-size: 18px !important;
-        font-weight: 400 !important; 
         border: 2px solid #000000 !important;
         padding: 12px 24px !important;
-        transition: all 0.1s ease-in-out;
         box-shadow: 4px 4px 0px #000000 !important; 
         text-transform: uppercase;
     }
@@ -79,86 +72,42 @@ st.markdown("""
         transform: translate(2px, 2px); 
         box-shadow: 2px 2px 0px #000000 !important; 
     }
-    .stButton>button:active {
-        transform: translate(4px, 4px);
-        box-shadow: 0px 0px 0px transparent !important; 
-    }
 
-    /* 5. CAMPI DI TESTO E INPUT - Arrotondamento marcato */
     .stTextInput input, .stTextArea textarea, [data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         border: 2px solid #000000 !important;
         border-radius: 24px !important; 
         padding: 12px 16px !important;
         color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important;
         font-family: 'Inter', sans-serif !important; 
-        font-weight: 500 !important;
-        box-shadow: none !important;
-    }
-    .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: #E60000 !important; 
-        outline: none !important;
     }
     
-    /* ==================================================
-       FIX DEFINITIVO SELECTBOX (TESTO INVISIBILE)
-       ================================================== */
-       
-    /* FORZA IL TESTO NERO NELLA TENDINA CHIUSA */
+    /* FIX TENDINE INVISIBILI */
     .stSelectbox [data-baseweb="select"] * {
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
         opacity: 1 !important;
-        visibility: visible !important;
     }
-    
-    /* FORZA IL COLORE DELLA TENDINA APERTA (MENU FLUTTUANTE) */
     ul[role="listbox"] {
         background-color: #FFFFFF !important;
         border: 2px solid #000000 !important;
         border-radius: 16px !important;
-        padding: 8px !important;
-        box-shadow: 4px 4px 0px rgba(0,0,0,0.2) !important;
     }
     li[role="option"] {
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
-        background-color: #FFFFFF !important;
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 500 !important;
-        border-radius: 8px !important;
-        margin-bottom: 2px !important;
     }
-    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+    li[role="option"]:hover {
         background-color: #E60000 !important;
         color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
     }
-    /* ================================================== */
-    
-    /* Etichette dei campi */
-    label, .st-emotion-cache-10trnc2 {
+
+    label {
         font-family: 'DotGothic16', monospace !important;
-        font-size: 14px !important;
-        color: #000000 !important;
         text-transform: uppercase;
         margin-left: 8px; 
     }
 
-    /* 6. UPLOADER FILE */
-    [data-testid="stFileUploadDropzone"] {
-        border: 2px dashed #000000 !important;
-        border-radius: 24px !important; 
-        background-color: #FFFFFF !important;
-        transition: all 0.2s ease;
-    }
-    [data-testid="stFileUploadDropzone"]:hover {
-        border-color: #E60000 !important;
-        background-color: rgba(230, 0, 0, 0.05) !important;
-    }
-
-    /* Contenitori laterali morbidi */
     [data-testid="column"] {
         background-color: #FFFFFF;
         border-radius: 32px; 
@@ -185,80 +134,116 @@ def hex_to_rgb(h):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 def get_fonts():
+    """Font scalati per canvas ad alta risoluzione."""
     try:
-        return (ImageFont.truetype("arial.ttf", 130), ImageFont.truetype("arial.ttf", 45),
-                ImageFont.truetype("arial.ttf", 26), ImageFont.truetype("arial.ttf", 36))
+        # Aumentati drasticamente per visibilità professionale nel PDF
+        return (
+            ImageFont.truetype("arial.ttf", 280), # H1 Titolo
+            ImageFont.truetype("arial.ttf", 90),  # H2 Descrizione
+            ImageFont.truetype("arial.ttf", 55),  # Labels (BRAND, LOCATION)
+            ImageFont.truetype("arial.ttf", 75)   # Values
+        )
     except:
         d = ImageFont.load_default()
         return d, d, d, d
 
+def color_distance(c1, c2):
+    """Calcola la distanza euclidea tra due colori RGB."""
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
+
 def extract_palette(image_files, num_colors=6):
-    colors = []
-    for img_f in image_files[:5]: 
-        if hasattr(img_f, 'seek'):
-            img_f.seek(0)
-        img = Image.open(img_f).convert("RGB").resize((50, 50))
-        for r, g, b in img.getdata():
-            colors.append((r - r%20, g - g%20, b - b%20))
-    if not colors:
-        return []
-    most_common = Counter(colors).most_common(num_colors)
-    return [c[0] for c in most_common]
+    """Estrae una palette intelligente e variegata."""
+    all_colors = []
+    for img_f in image_files[:8]: 
+        if hasattr(img_f, 'seek'): img_f.seek(0)
+        img = Image.open(img_f).convert("RGB").resize((60, 60))
+        all_colors.extend(list(img.getdata()))
+    
+    if not all_colors: return []
+
+    # Conta frequenze e arrotonda per raggruppare sfumature simili
+    counts = Counter([(r//15*15, g//15*15, b//15*15) for r, g, b in all_colors])
+    sorted_colors = [item[0] for item in counts.most_common(100)]
+    
+    # Selezione intelligente: evita colori troppo vicini
+    unique_palette = []
+    if sorted_colors:
+        unique_palette.append(sorted_colors[0])
+        for c in sorted_colors[1:]:
+            if len(unique_palette) >= num_colors: break
+            # Distanza minima di 60 per garantire diversità cromatica
+            if all(color_distance(c, existing) > 65 for existing in unique_palette):
+                unique_palette.append(c)
+                
+    return unique_palette
 
 # --- MOTORE UNICO CANVAS ---
 def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
     bg, tx, ac = hex_to_rgb(styling["bg"]), hex_to_rgb(styling["text"]), hex_to_rgb(styling["accent"])
-    w = 2000 if styling["orientation"].startswith("Verticale") else 3000
-    m = 150 
+    w = 2500 if styling["orientation"].startswith("Verticale") else 3500
+    m = 180 # Margine più ampio
     f_h1, f_h2, f_lbl, f_val = get_fonts()
-    canvas = Image.new("RGB", (w, 10000), bg)
+    
+    canvas = Image.new("RGB", (w, 15000), bg)
     draw = ImageDraw.Draw(canvas)
     current_y = m
 
-    draw.text((m, current_y), details["title"].upper(), fill=tx, font=f_h1)
-    current_y += 160
-    draw.text((m, current_y), details["desc"], fill=ac, font=f_h2)
-    current_y += 180
+    # SEZIONE 01: INFO (TESTI GRANDI)
+    title_wrapped = textwrap.fill(details["title"].upper(), width=18)
+    for line in title_wrapped.split('\n'):
+        draw.text((m, current_y), line, fill=tx, font=f_h1)
+        current_y += 300
     
-    info_cols = [("BRAND", details.get("brand", "")), ("LOCATION", details.get("location", "")), ("DATA", details.get("date", ""))]
+    current_y += 80
+    desc_wrapped = textwrap.fill(details["desc"], width=50)
+    for line in desc_wrapped.split('\n'):
+        draw.text((m, current_y), line, fill=ac, font=f_h2)
+        current_y += 110
+    
+    current_y += 200
+    
+    # INFO BOXES (BRAND, LOCATION, DATA)
+    info_cols = [("BRAND", details.get("brand", "")), ("LOCATION", details.get("location", "")), ("DATE", details.get("date", ""))]
     col_x, step_x = m, (w - 2*m) // 3
     for label, value in info_cols:
         if value:
             draw.text((col_x, current_y), label, fill=ac, font=f_lbl)
-            draw.text((col_x, current_y + 45), value.upper(), fill=tx, font=f_val)
+            draw.text((col_x, current_y + 80), value.upper(), fill=tx, font=f_val)
         col_x += step_x
-    current_y += 200
+    current_y += 350
 
+    # LOCATION IMAGES
     if loc_imgs:
-        l_w = (w - 2*m - 60) // 3
+        l_w = (w - 2*m - 100) // 3
         max_loc_h, x_pos = 0, m
         for img_f in loc_imgs[:3]:
             if hasattr(img_f, 'seek'): img_f.seek(0)
             l_img = Image.open(img_f).convert("RGB")
             new_h = int(l_w * (l_img.height / l_img.width))
-            l_img = l_img.resize((l_w, new_h))
+            l_img = l_img.resize((l_w, new_h), Image.Resampling.LANCZOS)
             canvas.paste(l_img, (x_pos, current_y))
             max_loc_h = max(max_loc_h, new_h)
-            x_pos += l_w + 30
-        current_y += max_loc_h + 100
+            x_pos += l_w + 50
+        current_y += max_loc_h + 150
 
+    # SEZIONE 02: TEAM & CAST
     if crew or any(mod['name'] for mod in models):
-        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=2)
-        current_y += 60
+        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
+        current_y += 100
         draw.text((m, current_y), "// TEAM & CASTING", fill=ac, font=f_lbl)
-        current_y += 80
+        current_y += 150
 
         if crew:
             cx = m
             for i, member in enumerate(crew):
-                if i > 0 and i % 4 == 0: cx = m; current_y += 150
+                if i > 0 and i % 4 == 0: cx = m; current_y += 250
                 draw.text((cx, current_y), member['role'].upper(), fill=ac, font=f_lbl)
-                draw.text((cx, current_y + 35), member['name'].upper(), fill=tx, font=f_val)
+                draw.text((cx, current_y + 70), member['name'].upper(), fill=tx, font=f_val)
                 cx += (w - 2*m) // 4
-            current_y += 200
+            current_y += 350
 
         if any(mod['name'] for mod in models):
-            mod_w = (w - 2*m - 120) // 5
+            mod_w = (w - 2*m - 150) // 5
             mx = m
             max_m_h = 0
             for mod in models:
@@ -266,21 +251,22 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
                     if hasattr(mod['photo'], 'seek'): mod['photo'].seek(0)
                     m_img = Image.open(mod['photo']).convert("RGB")
                     m_h = int(mod_w * (m_img.height / m_img.width))
-                    m_img = m_img.resize((mod_w, m_h))
+                    m_img = m_img.resize((mod_w, m_h), Image.Resampling.LANCZOS)
                     canvas.paste(m_img, (mx, current_y))
-                    draw.text((mx, current_y + m_h + 10), mod['name'].upper(), fill=tx, font=f_val)
+                    draw.text((mx, current_y + m_h + 30), mod['name'].upper(), fill=tx, font=f_val)
                     max_m_h = max(max_m_h, m_h)
-                mx += mod_w + 30
-            current_y += max_m_h + 200
+                mx += mod_w + 35
+            current_y += max_m_h + 300
 
+    # SEZIONE 03: VISUAL DIRECTION
     if mood_imgs:
-        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=2)
-        current_y += 60
+        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
+        current_y += 100
         draw.text((m, current_y), "// VISUAL DIRECTION", fill=ac, font=f_lbl)
-        current_y += 120
+        current_y += 150
 
         if styling['layout'] == "Scrapbook STRONG":
-            cols = 3 if w < 2500 else 4
+            cols = 3 if w < 3000 else 4
             grid_w = (w - 2*m) // cols
             last_y_in_grid = current_y
             for i, img_f in enumerate(mood_imgs):
@@ -288,46 +274,47 @@ def create_pro_document(details, models, crew, mood_imgs, loc_imgs, styling):
                 if hasattr(img_f, 'seek'): img_f.seek(0)
                 img = Image.open(img_f).convert("RGB")
                 if styling['filter'] == "Bianco e Nero": img = img.convert("L").convert("RGB")
-                img_w = int(grid_w * random.uniform(0.85, 0.95))
+                img_w = int(grid_w * random.uniform(0.85, 0.98))
                 img_h = int(img_w * (img.height/img.width))
-                img = img.resize((img_w, img_h))
-                img_final = ImageOps.expand(img, border=20, fill='#FFFFFF').convert("RGBA")
-                img_final = img_final.rotate(random.randint(-4, 4), expand=True)
+                img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
+                img_final = ImageOps.expand(img, border=25, fill='#FFFFFF').convert("RGBA")
+                img_final = img_final.rotate(random.randint(-4, 4), expand=True, resample=Image.BICUBIC)
                 pos_x = m + (col * grid_w) + random.randint(-40, 40)
-                pos_y = current_y + (row * (grid_w + 100)) + random.randint(-30, 30)
-                canvas.paste(img_final, (pos_x, pos_y), img_final)
+                pos_y = current_y + (row * (grid_w + 150)) + random.randint(-30, 30)
+                canvas.paste(img_final, (int(pos_x), int(pos_y)), img_final)
                 last_y_in_grid = max(last_y_in_grid, pos_y + img_final.height)
-            current_y = last_y_in_grid + 150
+            current_y = last_y_in_grid + 200
         else:
             cols = 3
-            mb_w = (w - 2*m - 80) // cols
+            mb_w = (w - 2*m - 100) // cols
             col_y = [current_y] * cols
             for img_f in mood_imgs:
                 if hasattr(img_f, 'seek'): img_f.seek(0)
                 img = Image.open(img_f).convert("RGB")
                 new_h = int(mb_w * (img.height/img.width))
-                img = img.resize((mb_w, new_h))
+                img = img.resize((mb_w, new_h), Image.Resampling.LANCZOS)
                 target = col_y.index(min(col_y))
-                canvas.paste(img, (m + target*(mb_w+40), col_y[target]))
-                col_y[target] += new_h + 40
-            current_y = max(col_y) + 150
+                canvas.paste(img, (m + target*(mb_w+50), col_y[target]))
+                col_y[target] += new_h + 50
+            current_y = max(col_y) + 200
 
+    # --- SEZIONE: PALETTE INTELLIGENTE ---
     if mood_imgs:
-        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=2)
-        current_y += 60
-        draw.text((m, current_y), "// COLOR PALETTE", fill=ac, font=f_lbl)
+        draw.line([(m, current_y), (w-m, current_y)], fill=ac, width=4)
         current_y += 100
+        draw.text((m, current_y), "// COLOR PALETTE (SMART EXTRACTION)", fill=ac, font=f_lbl)
+        current_y += 150
         
         palette = extract_palette(mood_imgs)
         if palette:
-            swatch_size = (w - 2*m - (len(palette)-1)*40) // len(palette)
+            swatch_size = (w - 2*m - (len(palette)-1)*60) // len(palette)
             px = m
             for color in palette:
                 draw.rectangle([px, current_y, px + swatch_size, current_y + swatch_size], fill=color)
                 hex_code = '#%02x%02x%02x' % color
-                draw.text((px, current_y + swatch_size + 20), hex_code.upper(), fill=tx, font=f_val)
-                px += swatch_size + 40
-            current_y += swatch_size + 200
+                draw.text((px, current_y + swatch_size + 40), hex_code.upper(), fill=tx, font=f_val)
+                px += swatch_size + 60
+            current_y += swatch_size + 400
 
     final_canvas = canvas.crop((0, 0, w, current_y + m))
     return [final_canvas]
@@ -346,7 +333,6 @@ elif st.session_state.app_mode in ['base', 'adv']:
     with col_nav:
         if st.button("< RETURN"): st.session_state.app_mode = 'home'; st.rerun()
     
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
     col_left, col_right = st.columns([1.5, 2.5], gap="large")
     
     with col_left:
@@ -393,7 +379,6 @@ elif st.session_state.app_mode in ['base', 'adv']:
             
             t_brand, t_loc_name, t_date, loc_photos = "", "", "", []
 
-        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
         if st.button("COMPILE TREATMENT", use_container_width=True):
             with st.spinner("EXECUTING..."):
                 styling = {**THEMES[s_theme], "layout": s_layout, "filter": s_filter, "orientation": s_orient}
@@ -413,7 +398,6 @@ elif st.session_state.app_mode in ['base', 'adv']:
             pdf_buf = io.BytesIO()
             img.save(pdf_buf, format="PDF", resolution=100.0)
             
-            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
             st.download_button(
                 label="DOWNLOAD PDF",
                 data=pdf_buf.getvalue(),
@@ -421,5 +405,3 @@ elif st.session_state.app_mode in ['base', 'adv']:
                 mime="application/pdf",
                 use_container_width=True
             )
-        else:
-            st.info("AWAITING INPUT... COMPILE DATA ON THE LEFT TO GENERATE PREVIEW.")
